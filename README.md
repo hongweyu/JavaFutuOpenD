@@ -5,6 +5,10 @@
 jdk1.8</br>
 eclipse
 
+# 编码
+protobuf 目录下所有文件使用 UTF-8<br>
+src 目录下所有文件使用 GBK
+
 # 测试与示例
 参见 why.stock.futu.Proto 
 
