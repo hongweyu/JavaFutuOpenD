@@ -183,7 +183,7 @@ public class Proto {
 	
 	@SuppressWarnings("deprecation")
 	public Qot_GetOrderBook.QotGetOrderBook.Response get_order_book(QotMarket market, String code, int num) throws IOException, InterruptedException{
-		int mkt = market.getNumber();
+		int mkt = market == QotMarket.QotMarket_CNSZ_Security && code.charAt(0)=='6' ? QotMarket.QotMarket_CNSH_Security_VALUE : market.getNumber();
 		Security.Builder sb = Security.newBuilder();
 		sb.setMarket(mkt);
 		sb.setCode(code);
@@ -206,6 +206,19 @@ public class Proto {
 		Qot_GetBroker.QotGetBroker.Request.Builder rb = Qot_GetBroker.QotGetBroker.Request.newBuilder();
 		rb.setC2S(cb.build());
 		return tcp(3014, rb.build(), Qot_GetBroker.QotGetBroker.Response.PARSER);
+	}
+	
+	@SuppressWarnings("deprecation")
+	public Qot_GetOrderDetail.QotGetOrderDetail.Response get_order_detail(QotMarket market, String code) throws IOException, InterruptedException{
+		int mkt = market == QotMarket.QotMarket_CNSZ_Security && code.charAt(0)=='6' ? QotMarket.QotMarket_CNSH_Security_VALUE : market.getNumber();
+		Security.Builder sb = Security.newBuilder();
+		sb.setMarket(mkt);
+		sb.setCode(code);
+		Qot_GetOrderDetail.QotGetOrderDetail.C2S.Builder cb = Qot_GetOrderDetail.QotGetOrderDetail.C2S.newBuilder();
+		cb.setSecurity(sb.build());
+		Qot_GetOrderDetail.QotGetOrderDetail.Request.Builder rb = Qot_GetOrderDetail.QotGetOrderDetail.Request.newBuilder();
+		rb.setC2S(cb.build());
+		return tcp(3016, rb.build(), Qot_GetOrderDetail.QotGetOrderDetail.Response.PARSER);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -346,18 +359,18 @@ public class Proto {
         return response;
 	}
 	
-//	Ğ­ÒéÉè¼Æ
-//	Ğ­ÒéÊı¾İ°üÀ¨Ğ­ÒéÍ·ÒÔ¼°Ğ­ÒéÌå£¬Ğ­ÒéÍ·¹Ì¶¨×Ö¶Î£¬Ğ­ÒéÌå¸ù¾İ¾ßÌåĞ­Òé¾ö¶¨
+//	åè®®è®¾è®¡
+//	åè®®æ•°æ®åŒ…æ‹¬åè®®å¤´ä»¥åŠåè®®ä½“ï¼Œåè®®å¤´å›ºå®šå­—æ®µï¼Œåè®®ä½“æ ¹æ®å…·ä½“åè®®å†³å®š
 
-	//	Ğ­ÒéÍ·½á¹¹
-//	szHeaderFlag	°üÍ·ÆğÊ¼±êÖ¾£¬¹Ì¶¨Îª¡°FT¡±
-//	nProtoID	Ğ­ÒéID
-//	nProtoFmtType	Ğ­Òé¸ñÊ½ÀàĞÍ£¬0ÎªProtobuf¸ñÊ½£¬1ÎªJson¸ñÊ½
-//	nProtoVer	Ğ­Òé°æ±¾£¬ÓÃÓÚµü´ú¼æÈİ, Ä¿Ç°Ìî0
-//	nSerialNo	°üĞòÁĞºÅ£¬ÓÃÓÚ¶ÔÓ¦ÇëÇó°üºÍ»Ø°ü, ÒªÇóµİÔö
-//	nBodyLen	°üÌå³¤¶È
-//	arrBodySHA1	°üÌåÔ­Ê¼Êı¾İ(½âÃÜºó)µÄSHA1¹şÏ£Öµ
-//	arrReserved	±£Áô8×Ö½ÚÀ©Õ¹
+	//	åè®®å¤´ç»“æ„
+//	szHeaderFlag	åŒ…å¤´èµ·å§‹æ ‡å¿—ï¼Œå›ºå®šä¸ºâ€œFTâ€
+//	nProtoID	åè®®ID
+//	nProtoFmtType	åè®®æ ¼å¼ç±»å‹ï¼Œ0ä¸ºProtobufæ ¼å¼ï¼Œ1ä¸ºJsonæ ¼å¼
+//	nProtoVer	åè®®ç‰ˆæœ¬ï¼Œç”¨äºè¿­ä»£å…¼å®¹, ç›®å‰å¡«0
+//	nSerialNo	åŒ…åºåˆ—å·ï¼Œç”¨äºå¯¹åº”è¯·æ±‚åŒ…å’Œå›åŒ…, è¦æ±‚é€’å¢
+//	nBodyLen	åŒ…ä½“é•¿åº¦
+//	arrBodySHA1	åŒ…ä½“åŸå§‹æ•°æ®(è§£å¯†å)çš„SHA1å“ˆå¸Œå€¼
+//	arrReserved	ä¿ç•™8å­—èŠ‚æ‰©å±•
 	public static class APIProtoHeader extends Structure
 	{
 		public byte szHeaderFlag[] = {'F', 'T'};
@@ -381,13 +394,13 @@ public class Proto {
 			super(p);
 		}
 	}
-//	FutuOpenDÄÚ²¿´¦ÀíÊ¹ÓÃProtobuf£¬Òò´ËĞ­Òé¸ñÊ½½¨ÒéÊ¹ÓÃProtobuf£¬¼õÉÙJson×ª»»¿ªÏú
-//	nProtoFmtType×Ö¶ÎÖ¸¶¨ÁË°üÌåµÄÊı¾İÀàĞÍ£¬»Ø°ü»á»Ø¶ÔÓ¦ÀàĞÍµÄÊı¾İ£»ÍÆËÍĞ­ÒéÊı¾İÀàĞÍÓÉFutuOpenDÅäÖÃÎÄ¼şÖ¸¶¨
-//	arrBodySHA1ÓÃÓÚĞ£ÑéÇëÇóÊı¾İÔÚÍøÂç´«ÊäÇ°ºóµÄÒ»ÖÂĞÔ£¬±ØĞëÕıÈ·ÌîÈë
-//	Ğ­ÒéÍ·µÄ¶ş½øÖÆÁ÷Ê¹ÓÃµÄÊÇĞ¡¶Ë×Ö½ÚĞò£¬¼´Ò»°ã²»ĞèÒªÊ¹ÓÃntohlµÈÏà¹Øº¯Êı×ª»»Êı¾İ
+//	FutuOpenDå†…éƒ¨å¤„ç†ä½¿ç”¨Protobufï¼Œå› æ­¤åè®®æ ¼å¼å»ºè®®ä½¿ç”¨Protobufï¼Œå‡å°‘Jsonè½¬æ¢å¼€é”€
+//	nProtoFmtTypeå­—æ®µæŒ‡å®šäº†åŒ…ä½“çš„æ•°æ®ç±»å‹ï¼Œå›åŒ…ä¼šå›å¯¹åº”ç±»å‹çš„æ•°æ®ï¼›æ¨é€åè®®æ•°æ®ç±»å‹ç”±FutuOpenDé…ç½®æ–‡ä»¶æŒ‡å®š
+//	arrBodySHA1ç”¨äºæ ¡éªŒè¯·æ±‚æ•°æ®åœ¨ç½‘ç»œä¼ è¾“å‰åçš„ä¸€è‡´æ€§ï¼Œå¿…é¡»æ­£ç¡®å¡«å…¥
+//	åè®®å¤´çš„äºŒè¿›åˆ¶æµä½¿ç”¨çš„æ˜¯å°ç«¯å­—èŠ‚åºï¼Œå³ä¸€èˆ¬ä¸éœ€è¦ä½¿ç”¨ntohlç­‰ç›¸å…³å‡½æ•°è½¬æ¢æ•°æ®
 	
-//	Ğ­ÒéÌå½á¹¹
-//	ProtobufĞ­ÒéÇëÇó°üÌå½á¹¹
+//	åè®®ä½“ç»“æ„
+//	Protobufåè®®è¯·æ±‚åŒ…ä½“ç»“æ„
 //
 //	message C2S
 //	{
@@ -398,7 +411,7 @@ public class Proto {
 //	{
 //	    required C2S c2s = 1;
 //	}
-//	ProtobufĞ­Òé»ØÓ¦°üÌå½á¹¹
+//	Protobufåè®®å›åº”åŒ…ä½“ç»“æ„
 //
 //	message S2C
 //	{
@@ -407,13 +420,13 @@ public class Proto {
 //
 //	message Response
 //	{
-//	    required int32 retType = 1 [default = -400]; //RetType,·µ»Ø½á¹û
+//	    required int32 retType = 1 [default = -400]; //RetType,è¿”å›ç»“æœ
 //	    optional string retMsg = 2;
 //	    optional int32 errCode = 3;
 //	    optional S2C s2c = 4;
 //	}
 	
-//	JsonĞ­ÒéÇëÇó°üÌå½á¹¹
+//	Jsonåè®®è¯·æ±‚åŒ…ä½“ç»“æ„
 //
 //	{
 //	    "c2s":
@@ -421,7 +434,7 @@ public class Proto {
 //	         "req": 0
 //	    }
 //	}
-//	JsonĞ­Òé»ØÓ¦°üÌå½á¹¹
+//	Jsonåè®®å›åº”åŒ…ä½“ç»“æ„
 //
 //	{
 //	    "retType" : 0
@@ -432,12 +445,12 @@ public class Proto {
 //	        "data": 0
 //	    }
 //	}
-//	×Ö¶Î	ËµÃ÷
-//	c2s	ÇëÇó²ÎÊı½á¹¹
-//	req	ÇëÇó²ÎÊı£¬Êµ¼Ê¸ù¾İĞ­Òé¶¨Òå
-//	retType	ÇëÇó½á¹û
-//	retMsg	ÈôÇëÇóÊ§°Ü£¬ËµÃ÷Ê§°ÜÔ­Òò
-//	errCode	ÈôÇëÇóÊ§°Ü¶ÔÓ¦´íÎóÂë
-//	s2c	»ØÓ¦Êı¾İ½á¹¹£¬²¿·ÖĞ­Òé²»·µ»ØÊı¾İÔòÎŞ¸Ã×Ö¶Î
-//	data	»ØÓ¦Êı¾İ£¬Êµ¼Ê¸ù¾İĞ­Òé¶¨Òå
+//	å­—æ®µ	è¯´æ˜
+//	c2s	è¯·æ±‚å‚æ•°ç»“æ„
+//	req	è¯·æ±‚å‚æ•°ï¼Œå®é™…æ ¹æ®åè®®å®šä¹‰
+//	retType	è¯·æ±‚ç»“æœ
+//	retMsg	è‹¥è¯·æ±‚å¤±è´¥ï¼Œè¯´æ˜å¤±è´¥åŸå› 
+//	errCode	è‹¥è¯·æ±‚å¤±è´¥å¯¹åº”é”™è¯¯ç 
+//	s2c	å›åº”æ•°æ®ç»“æ„ï¼Œéƒ¨åˆ†åè®®ä¸è¿”å›æ•°æ®åˆ™æ— è¯¥å­—æ®µ
+//	data	å›åº”æ•°æ®ï¼Œå®é™…æ ¹æ®åè®®å®šä¹‰
 }
