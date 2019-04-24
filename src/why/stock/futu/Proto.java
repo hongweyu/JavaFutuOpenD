@@ -200,7 +200,7 @@ public class Proto {
 	}
 	
 	@SuppressWarnings("deprecation")
-	public Qot_GetOrderBook.QotGetOrderBook.Response[] get_order_books(QotMarket market, List<String> codes, int num) throws IOException, InterruptedException{
+	public synchronized Qot_GetOrderBook.QotGetOrderBook.Response[] get_order_books(QotMarket market, List<String> codes, int num) throws IOException, InterruptedException{
 		int nSerialNos[] = new int[codes.size()];
 		Qot_GetOrderBook.QotGetOrderBook.Request ins[] = new Qot_GetOrderBook.QotGetOrderBook.Request[nSerialNos.length];
 		for(int i=0; i<ins.length; i++){
@@ -331,12 +331,12 @@ public class Proto {
 			this.milliSeconds = System.currentTimeMillis();
 		}
 	}
-	private <T extends GeneratedMessageV3> T tcp(int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER) throws IOException, InterruptedException{
+	private synchronized <T extends GeneratedMessageV3> T tcp(int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER) throws IOException, InterruptedException{
 		check_keep_alive();
 		return tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut);
 	}
 	
-	private static synchronized APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
+	private static APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
         byte[] to = in.toByteArray();
         APIProtoHeader header = new APIProtoHeader(nProtoID, nSerialNo, to);
         header.write();
@@ -356,7 +356,7 @@ public class Proto {
         }while((b=is.available())>0);
 	}
 	
-	private static synchronized <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
+	private static <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
     	if(baos.size() < off + hsize)
     		read(is, timeOut, baos);
     	byte[] datas = baos.toByteArray();
