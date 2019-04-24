@@ -336,7 +336,7 @@ public class Proto {
 		return tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut);
 	}
 	
-	private static APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
+	private static synchronized APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
         byte[] to = in.toByteArray();
         APIProtoHeader header = new APIProtoHeader(nProtoID, nSerialNo, to);
         header.write();
@@ -356,7 +356,7 @@ public class Proto {
         }while((b=is.available())>0);
 	}
 	
-	private static <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
+	private static synchronized <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
     	if(baos.size() < off + hsize)
     		read(is, timeOut, baos);
     	byte[] datas = baos.toByteArray();
@@ -377,7 +377,7 @@ public class Proto {
 	}
 	
 	private static <T extends GeneratedMessageV3> T tcp(Socket s, int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER, int nSerialNo, int timeOut) 
-			throws IOException, InterruptedException	//synchronized
+			throws IOException, InterruptedException
 	{   
 		OutputStream os = s.getOutputStream();
 		APIProtoHeader header = write(os, nProtoID, in, nSerialNo);
