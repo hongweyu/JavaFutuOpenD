@@ -32,16 +32,7 @@ public class Proto {
 	
 	private int nSerialNo = 2, timeOut = 30; //tenth of second
 
-	private static MessageDigest sha1MsgDigest, md5MsgDigest;
-	
-	static{
-		try {
-			sha1MsgDigest = MessageDigest.getInstance("SHA1");
-			md5MsgDigest = MessageDigest.getInstance("MD5");
-		} catch (NoSuchAlgorithmException e) {
-			throw new RuntimeException(e);
-		}
-	}
+	private MessageDigest sha1MsgDigest, md5MsgDigest;
 	
 	public static void main(final String... args) throws Exception{
 		
@@ -84,12 +75,14 @@ public class Proto {
 		ctx.close();
 	}
 	
-	private Proto(Socket s, long connID, long userID, int keepAliveInterval){
+	private Proto(Socket s, long connID, long userID, int keepAliveInterval, MessageDigest sha1MsgDigest) throws NoSuchAlgorithmException{
 		this.s = s;
 		this.connID = connID;
 		this.userID = userID;
 		this.keepAliveInterval = keepAliveInterval * 1000;
 		this.milliSeconds = System.currentTimeMillis();
+		this.md5MsgDigest = MessageDigest.getInstance("MD5");
+		this.sha1MsgDigest = sha1MsgDigest;
 	}
 	
 	public void close() throws IOException{
@@ -101,7 +94,7 @@ public class Proto {
 	}
 	
 	@SuppressWarnings("deprecation")
-	public static Proto OpenContext(String host, int port, boolean recNotify, boolean encrypt, String client) throws IOException, InterruptedException{
+	public static Proto OpenContext(String host, int port, boolean recNotify, boolean encrypt, String client) throws IOException, InterruptedException, NoSuchAlgorithmException{
 		Socket s = new Socket(host, port);
 		InitConnect.InitConnect.C2S.Builder cb = InitConnect.InitConnect.C2S.newBuilder();
 		cb.setClientVer(300);
@@ -110,14 +103,15 @@ public class Proto {
 		cb.setPacketEncAlgo(encrypt ? 4 : 0);
 		InitConnect.InitConnect.Request.Builder rb = InitConnect.InitConnect.Request.newBuilder();
 		rb.setC2S(cb.build());
-		InitConnect.InitConnect.Response response = tcp(s, 1001, rb.build(), InitConnect.InitConnect.Response.PARSER, 1, 30);
+		MessageDigest sha1MsgDigest = MessageDigest.getInstance("SHA1");
+		InitConnect.InitConnect.Response response = tcp(s, 1001, rb.build(), InitConnect.InitConnect.Response.PARSER, 1, 30, sha1MsgDigest);
 		if(response==null){
 			s.close();
 			return null;
 		}else{
 //			System.out.println(response);
 			InitConnect.InitConnect.S2C s2c = response.getS2C();
-			return new Proto(s, s2c.getConnID(), s2c.getLoginUserID(), s2c.getKeepAliveInterval());
+			return new Proto(s, s2c.getConnID(), s2c.getLoginUserID(), s2c.getKeepAliveInterval(), sha1MsgDigest);
 		} 
 	}
 
@@ -127,7 +121,7 @@ public class Proto {
 		cb.setTime(new Date().getTime()/1000);
 		KeepAlive.KeepAlive.Request.Builder rb = KeepAlive.KeepAlive.Request.newBuilder();
 		rb.setC2S(cb.build());
-		return tcp(s, 1004, rb.build(), KeepAlive.KeepAlive.Response.PARSER, nSerialNo++, timeOut);
+		return tcp(s, 1004, rb.build(), KeepAlive.KeepAlive.Response.PARSER, nSerialNo++, timeOut, sha1MsgDigest);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -208,7 +202,7 @@ public class Proto {
 			ins[i] = get_order_book_request(market, codes.get(i), num);
 		}
 		check_keep_alive();
-		return tcp(s, 3012, ins, Qot_GetOrderBook.QotGetOrderBook.Response.PARSER, nSerialNos, timeOut, new Qot_GetOrderBook.QotGetOrderBook.Response[nSerialNos.length]);
+		return tcp(s, 3012, ins, Qot_GetOrderBook.QotGetOrderBook.Response.PARSER, nSerialNos, timeOut, sha1MsgDigest, new Qot_GetOrderBook.QotGetOrderBook.Response[nSerialNos.length]);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -333,12 +327,12 @@ public class Proto {
 	}
 	private synchronized <T extends GeneratedMessageV3> T tcp(int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER) throws IOException, InterruptedException{
 		check_keep_alive();
-		return tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut);
+		return tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut, sha1MsgDigest);
 	}
 	
-	private static APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
+	private static APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo, MessageDigest sha1MsgDigest) throws IOException{
         byte[] to = in.toByteArray();
-        APIProtoHeader header = new APIProtoHeader(nProtoID, nSerialNo, to);
+        APIProtoHeader header = new APIProtoHeader(nProtoID, nSerialNo, to, sha1MsgDigest);
         header.write();
         int hsize = header.size();   
         os.write(header.getPointer().getByteArray(0, hsize));
@@ -356,7 +350,8 @@ public class Proto {
         }while((b=is.available())>0);
 	}
 	
-	private static <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
+	private static <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) 
+			throws IOException, InterruptedException{
     	if(baos.size() < off + hsize)
     		read(is, timeOut, baos);
     	byte[] datas = baos.toByteArray();
@@ -376,22 +371,22 @@ public class Proto {
     	return PARSER.parseFrom(datas = Arrays.copyOfRange(datas, off, off + head.nBodyLen));
 	}
 	
-	private static <T extends GeneratedMessageV3> T tcp(Socket s, int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER, int nSerialNo, int timeOut) 
+	private static <T extends GeneratedMessageV3> T tcp(Socket s, int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER, int nSerialNo, int timeOut, MessageDigest sha1MsgDigest) 
 			throws IOException, InterruptedException
 	{   
 		OutputStream os = s.getOutputStream();
-		APIProtoHeader header = write(os, nProtoID, in, nSerialNo);
+		APIProtoHeader header = write(os, nProtoID, in, nSerialNo, sha1MsgDigest);
         os.flush();
         return read(s.getInputStream(), header, PARSER, timeOut, new ByteArrayOutputStream(), 0, header.size());
 	}
 	
-	private static <T extends GeneratedMessageV3, R extends GeneratedMessageV3> T[] tcp(Socket s, int nProtoID, R ins[], Parser<T> PARSER, int nSerialNos[], int timeOut, T[] responses) 
+	private static <T extends GeneratedMessageV3, R extends GeneratedMessageV3> T[] tcp(Socket s, int nProtoID, R ins[], Parser<T> PARSER, int nSerialNos[], int timeOut, MessageDigest sha1MsgDigest, T[] responses) 
 			throws IOException, InterruptedException
 	{  
 		APIProtoHeader header = null;
 		OutputStream os = s.getOutputStream();
 		for(int i=0; i<ins.length; i++)
-			header = write(os, nProtoID, ins[i], nSerialNos[i]);
+			header = write(os, nProtoID, ins[i], nSerialNos[i], sha1MsgDigest);
         os.flush();
         
         int off = 0, hsize = header.size();
@@ -428,7 +423,7 @@ public class Proto {
 		public byte arrBodySHA1[] = new byte[20];
 		public byte arrReserved[] = {0, 0, 0, 0, 0, 0, 0, 0}; //= new byte[8];
 	    
-	    public APIProtoHeader(int nProtoID, int nSerialNo, byte[] bodys){
+	    public APIProtoHeader(int nProtoID, int nSerialNo, byte[] bodys, MessageDigest sha1MsgDigest){
 	    	this.nProtoID = nProtoID;
 	    	this.nSerialNo = nSerialNo;
 	    	this.nBodyLen = bodys.length;
