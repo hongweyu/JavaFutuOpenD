@@ -181,8 +181,7 @@ public class Proto {
 		return tcp(3004, rb.build(), Qot_GetBasicQot.QotGetBasicQot.Response.PARSER);
 	}
 	
-	@SuppressWarnings("deprecation")
-	public Qot_GetOrderBook.QotGetOrderBook.Response get_order_book(QotMarket market, String code, int num) throws IOException, InterruptedException{
+	private Qot_GetOrderBook.QotGetOrderBook.Request get_order_book_request(QotMarket market, String code, int num){
 		int mkt = market == QotMarket.QotMarket_CNSZ_Security && code.charAt(0)=='6' ? QotMarket.QotMarket_CNSH_Security_VALUE : market.getNumber();
 		Security.Builder sb = Security.newBuilder();
 		sb.setMarket(mkt);
@@ -192,7 +191,24 @@ public class Proto {
 		cb.setNum(num);
 		Qot_GetOrderBook.QotGetOrderBook.Request.Builder rb = Qot_GetOrderBook.QotGetOrderBook.Request.newBuilder();
 		rb.setC2S(cb.build());
-		return tcp(3012, rb.build(), Qot_GetOrderBook.QotGetOrderBook.Response.PARSER);
+		return rb.build();
+	}
+	
+	@SuppressWarnings("deprecation")
+	public Qot_GetOrderBook.QotGetOrderBook.Response get_order_book(QotMarket market, String code, int num) throws IOException, InterruptedException{
+		return tcp(3012, get_order_book_request(market, code, num), Qot_GetOrderBook.QotGetOrderBook.Response.PARSER);
+	}
+	
+	@SuppressWarnings("deprecation")
+	public Qot_GetOrderBook.QotGetOrderBook.Response[] get_order_books(QotMarket market, List<String> codes, int num) throws IOException, InterruptedException{
+		int nSerialNos[] = new int[codes.size()];
+		Qot_GetOrderBook.QotGetOrderBook.Request ins[] = new Qot_GetOrderBook.QotGetOrderBook.Request[nSerialNos.length];
+		for(int i=0; i<ins.length; i++){
+			nSerialNos[i] = nSerialNo++;
+			ins[i] = get_order_book_request(market, codes.get(i), num);
+		}
+		check_keep_alive();
+		return tcp(s, 3012, ins, Qot_GetOrderBook.QotGetOrderBook.Response.PARSER, nSerialNos, timeOut, new Qot_GetOrderBook.QotGetOrderBook.Response[nSerialNos.length]);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -307,56 +323,86 @@ public class Proto {
 		return tcp(2205, rb.build(), Trd_ModifyOrder.TrdModifyOrder.Response.PARSER);
 	}
 	
-	private <T extends GeneratedMessageV3> T tcp(int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER) throws IOException, InterruptedException{
+	private void check_keep_alive() throws IOException, InterruptedException{
 		long curMilliSeconds = System.currentTimeMillis();
 //		System.out.println("runing " + in.getClass() + " at " + (curMilliSeconds-milliSeconds)/1000);
 		if(curMilliSeconds-milliSeconds>keepAliveInterval){
 			this.keep_alive();
 			this.milliSeconds = System.currentTimeMillis();
 		}
-		T t = tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut);
-		return t;
 	}
-	private static synchronized <T extends GeneratedMessageV3> T tcp(Socket s, int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER, int nSerialNo, int timeOut) 
-			throws IOException, InterruptedException//, ReflectiveOperationException, IllegalArgumentException, SecurityException 
-	{        
+	private <T extends GeneratedMessageV3> T tcp(int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER) throws IOException, InterruptedException{
+		check_keep_alive();
+		return tcp(s, nProtoID, in, PARSER, nSerialNo++, timeOut);
+	}
+	
+	private static APIProtoHeader write(OutputStream os, int nProtoID, GeneratedMessageV3 in, int nSerialNo) throws IOException{
         byte[] to = in.toByteArray();
         APIProtoHeader header = new APIProtoHeader(nProtoID, nSerialNo, to);
         header.write();
-        int hsize = header.size();
-        OutputStream os = s.getOutputStream();
+        int hsize = header.size();   
         os.write(header.getPointer().getByteArray(0, hsize));
         os.write(to);
-        os.flush();
-        
-        int b, j=0;
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        InputStream is = s.getInputStream();
+        return header;
+	}
+	
+	private static void read(InputStream is, int timeOut, ByteArrayOutputStream baos) throws IOException, InterruptedException{
+		int b, j=0;
         while((b=is.available())==0 && j++<timeOut)
         	Thread.sleep(100);
         do{
         	for(int i=0; i<b; i++)
         		baos.write(is.read());
         }while((b=is.available())>0);
-        
-        byte[] datas = baos.toByteArray();
-        if(datas.length<hsize)
-        	return null;
-        
+	}
+	
+	private static <T extends GeneratedMessageV3> T read(InputStream is, APIProtoHeader header, Parser<T> PARSER, int timeOut, ByteArrayOutputStream baos, int off, int hsize) throws IOException, InterruptedException{
+    	if(baos.size() < off + hsize)
+    		read(is, timeOut, baos);
+    	byte[] datas = baos.toByteArray();
+    	if(datas.length < off + hsize)
+    		return null;
+    
         Pointer p = new Memory(hsize);
-        p.write(0, datas, 0, hsize);
+        p.write(0, datas, off, hsize);
         APIProtoHeader head = new APIProtoHeader(p);
         head.read();
         if(head.nProtoID!=header.nProtoID || head.nProtoVer!=header.nProtoVer || head.nProtoFmtType!=header.nProtoFmtType 
-        		|| head.szHeaderFlag[0]!=header.szHeaderFlag[0] || head.szHeaderFlag[1]!=header.szHeaderFlag[1] || head.nSerialNo!=header.nSerialNo)
+        		|| head.szHeaderFlag[0]!=header.szHeaderFlag[0] || head.szHeaderFlag[1]!=header.szHeaderFlag[1]) // || head.nSerialNo!=header.nSerialNo
         	return null;
         
-        T response = PARSER.parseFrom(datas = Arrays.copyOfRange(datas, hsize, datas.length));
-//        if((Integer)response.getClass().getMethod("getRetType").invoke(response)!=0){
-//        	System.err.println("send: " + Baser.bytesToHex(to));
-//        	System.err.println("response: " + Baser.bytesToHex(datas));
-//        }
-        return response;
+        off += hsize;
+        header.nBodyLen = head.nBodyLen;
+    	return PARSER.parseFrom(datas = Arrays.copyOfRange(datas, off, off + head.nBodyLen));
+	}
+	
+	private static <T extends GeneratedMessageV3> T tcp(Socket s, int nProtoID, GeneratedMessageV3 in, Parser<T> PARSER, int nSerialNo, int timeOut) 
+			throws IOException, InterruptedException	//synchronized
+	{   
+		OutputStream os = s.getOutputStream();
+		APIProtoHeader header = write(os, nProtoID, in, nSerialNo);
+        os.flush();
+        return read(s.getInputStream(), header, PARSER, timeOut, new ByteArrayOutputStream(), 0, header.size());
+	}
+	
+	private static <T extends GeneratedMessageV3, R extends GeneratedMessageV3> T[] tcp(Socket s, int nProtoID, R ins[], Parser<T> PARSER, int nSerialNos[], int timeOut, T[] responses) 
+			throws IOException, InterruptedException
+	{  
+		APIProtoHeader header = null;
+		OutputStream os = s.getOutputStream();
+		for(int i=0; i<ins.length; i++)
+			header = write(os, nProtoID, ins[i], nSerialNos[i]);
+        os.flush();
+        
+        int off = 0, hsize = header.size();
+        InputStream is = s.getInputStream();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        for(int i=0; i<ins.length; i++){
+        	if((responses[i] = read(is, header, PARSER, timeOut, baos, off, hsize)) == null)
+        		return null;
+        	off += hsize + header.nBodyLen;
+        }
+        return responses;
 	}
 	
 //	协议设计
