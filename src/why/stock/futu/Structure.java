@@ -35,22 +35,4 @@ public class Structure extends com.sun.jna.Structure {
 			names.add(field.getName());
 		return names;
 	}
-	
-	public void reverseEndian(boolean bigEndian) throws IllegalArgumentException, ReflectiveOperationException{
-		byte[] bytes = {0, 0, 0, 0, 0, 0, 0, 0};
-		Field[] fields = getClass().getDeclaredFields(); 
-		for(Field field : fields){
-			Class cls = field.getType();
-			if(cls==int.class){
-				field.setInt(this, Baser.reverseEndian(field.getInt(this), bytes, 0, bigEndian));
-			}else if(cls==long.class){
-				field.setLong(this, Baser.reverseEndian(field.getLong(this), bytes, bigEndian));
-			}else if(cls==double.class){
-				field.setDouble(this, Baser.reverseEndian(field.getDouble(this), bytes, bigEndian));
-			}else if(Structure.class.isAssignableFrom(cls)){ //cls.getSuperclass() == Structure.class
-				((Structure) field.get(this)).reverseEndian(bigEndian);
-			}
-		}
-	}
-
 }
