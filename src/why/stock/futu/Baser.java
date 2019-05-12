@@ -24,63 +24,9 @@ public abstract class Baser {
 	    }
 	    return new String(hexChars);
 	}
-
-	public static void toBytes(int i, byte[] bytes, int offset, boolean bigEndian){
-		if(bigEndian){
-			bytes[offset] = (byte)(i>>>24); 
-			bytes[offset+1] = (byte)(i>>>16 & 0xFF);
-			bytes[offset+2] = (byte)(i>>>8 & 0xFF); 
-			bytes[offset+3] = (byte) (i & 0xFF);
-		}
-		else{
-			bytes[offset+3] = (byte)(i>>>24); 
-			bytes[offset+2] = (byte)(i>>>16 & 0xFF);
-			bytes[offset+1] = (byte)(i>>>8 & 0xFF); 
-			bytes[offset] = (byte) (i & 0xFF);
-		}
-	}
 	
-	public static void toBytes(long i, byte[] bytes, boolean bigEndian){
-		if(bigEndian){
-			toBytes((int)(i>>>32), bytes, 0, true);
-			toBytes((int)(i&0xFFFFFFFFL), bytes, 4, true);
-		}else{
-			toBytes((int)(i>>>32), bytes, 4, false);
-			toBytes((int)(i&0xFFFFFFFFL), bytes, 0, false);
-		}
-	}
-	
-	public static int toInt(byte[] bytes, int offset, boolean bigEndian){
-		if(bigEndian)
-			return (uint8(bytes[offset])<<24) + (uint8(bytes[offset+1])<<16)
-				+ (uint8(bytes[offset+2])<<8) + uint8(bytes[offset+3]);
-		else
-			return uint8(bytes[offset]) + (uint8(bytes[offset+1])<<8)
-				+ (uint8(bytes[offset+2])<<16) + (uint8(bytes[offset+3])<<24);
-	}
-	
-	public static long toLong(byte[] bytes, boolean bigEndian){
-		return 0;
-	}
-	
-	public static short uint8(int v){
-		return (short)((v<0)?(v+256):v);
-	}
-	
-	public static int reverseEndian(int i, byte[] bytes, int off, boolean bigEndian){
-		toBytes(i, bytes, off, bigEndian);
-		return toInt(bytes, off, !bigEndian);
-	}
-	
-	public static long reverseEndian(long l, byte[] bytes, boolean bigEndian){
-		toBytes(l, bytes, bigEndian);
-		return toLong(bytes, !bigEndian);
-	}
-	
-	public static double reverseEndian(double d, byte[] bytes, boolean bigEndian){
-		long l = Double.doubleToRawLongBits(d);
-		toBytes(l, bytes, bigEndian);
-		return Double.longBitsToDouble(toLong(bytes, !bigEndian));
+	public static final int bigEndian2LittleEndian32(int x) {
+		return (x & 0xFF) << 24 | (0xFF & x >> 8) << 16 | (0xFF & x >> 16) << 8 | (0xFF & x >> 24);
 	}
 	
 	public static TrdMarket trdMktConvert(int mkt){
