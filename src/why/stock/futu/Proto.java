@@ -469,10 +469,22 @@ public class Proto {
 	    	this.nBodyLen = bodys.length;
 	    	sha1MsgDigest.update(bodys);
 	    	this.arrBodySHA1 = sha1MsgDigest.digest();
+		
+		if(ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN){
+		    	this.nProtoID = Baser.bigEndian2LittleEndian32(nProtoID);
+		    	this.nSerialNo = Baser.bigEndian2LittleEndian32(nSerialNo);
+		    	this.nBodyLen = Baser.bigEndian2LittleEndian32(nBodyLen);
+	    	}    
 	    }
 	    
 	    public APIProtoHeader(Pointer p){
 			super(p);
+		    
+		    	if(ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN){
+		    		this.nProtoID = Baser.bigEndian2LittleEndian32(nProtoID);
+		    		this.nSerialNo = Baser.bigEndian2LittleEndian32(nSerialNo);
+		    		this.nBodyLen = Baser.bigEndian2LittleEndian32(nBodyLen);
+	    		}
 		}
 	}
 	
