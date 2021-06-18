@@ -40,6 +40,10 @@ public class Proto {
 	
 	public static final int DefaultTimeOut = 3000;
 	
+	public static void println(GeneratedMessageV3 response){
+		System.out.println(Baser.octal2String(response.toString(), ": \"\\"));
+	}
+	
 	public static void main(final String... args) throws Exception{
 		
 		String code = "00700";
@@ -50,31 +54,31 @@ public class Proto {
 		Proto ctx = OpenContext("127.0.0.1", 11111, "GetTester");
 		
 		Thread.sleep(3000);
-		System.out.println(response = ctx.subscribe(market, codes, Arrays.asList(SubType.SubType_Basic, SubType.SubType_Ticker, SubType.SubType_OrderBook, SubType.SubType_Broker), true));
+		println(response = ctx.subscribe(market, codes, Arrays.asList(SubType.SubType_Basic, SubType.SubType_Ticker, SubType.SubType_OrderBook, SubType.SubType_Broker), true));
 		Thread.sleep(3000);
-		System.out.println(response = ctx.get_stock_quote(market, codes));
+		println(response = ctx.get_stock_quote(market, codes));
 		Thread.sleep(3000);
 		System.err.println(new Date((long)((Qot_GetBasicQot.QotGetBasicQot.Response)response).getS2C().getBasicQotList(0).getUpdateTimestamp()*1000));
 		
 		Thread.sleep(3000);
 		response = ctx.get_rt_ticker(market, code, 1000);
 		System.err.println("Ticker " + ((Qot_GetTicker.QotGetTicker.Response)response).getS2C().getTickerListCount());
-		System.out.println(response = ctx.get_order_book(market, code, 10));
-		System.out.println(response = ctx.get_broker_queue(market, code));
+		println(response = ctx.get_order_book(market, code, 10));
+		println(response = ctx.get_broker_queue(market, code));
 		
-		System.out.println(response = ctx.get_acc_list());
+		println(response = ctx.get_acc_list());
 		List<TrdAcc> trdAccs = ((Trd_GetAccList.TrdGetAccList.Response)response).getS2C().getAccListList();
 		TrdAcc trdAcc = Baser.firstAcc(trdAccs, TrdMarket.TrdMarket_US, true);
 		TrdHeader trdHeader = Baser.trdAcc2Header(trdAcc);
 		
-		System.out.println(response = ctx.unlock_trade("", true));
-		System.out.println(response = ctx.accinfo_query(trdHeader));
-		System.out.println(response = ctx.position_list_query(trdHeader));
-		System.out.println(response = ctx.order_list_query(trdHeader));
-//		System.out.println(response = ctx.place_order(trdHeader, 400, 100, code, TrdSide.TrdSide_Buy, OrderType.OrderType_Normal));
-//		System.out.println(response = ctx.modify_order(trdHeader, ModifyOrderOp.ModifyOrderOp_Normal, ((Trd_PlaceOrder.TrdPlaceOrder.Response)response).getS2C().getOrderID(), 399, 100));
+		println(response = ctx.unlock_trade("", true));
+		println(response = ctx.accinfo_query(trdHeader));
+		println(response = ctx.position_list_query(trdHeader));
+		println(response = ctx.order_list_query(trdHeader));
+//		println(response = ctx.place_order(trdHeader, 400, 100, code, TrdSide.TrdSide_Buy, OrderType.OrderType_Normal));
+//		println(response = ctx.modify_order(trdHeader, ModifyOrderOp.ModifyOrderOp_Normal, ((Trd_PlaceOrder.TrdPlaceOrder.Response)response).getS2C().getOrderID(), 399, 100));
 		
-//		System.out.println(response = ctx.subscribe(market, SubType.SubType_Ticker, codes, false));		
+//		println(response = ctx.subscribe(market, SubType.SubType_Ticker, codes, false));		
 		ctx.close();
 		
 		Proto proto = OpenContext("127.0.0.1", 11111, true, false, "PushTester", DefaultTimeOut);
@@ -82,11 +86,11 @@ public class Proto {
 		proto.push_run(new ANotifyReveiver(){
 			@Override
 			protected void update(Qot_UpdateBasicQot.QotUpdateBasicQot.Response response) throws IOException{
-				System.err.println(response);
+				println(response);
 			}
 			@Override
 			protected void update(Qot_UpdateOrderBook.QotUpdateOrderBook.Response response) throws IOException{
-				System.out.println(response);
+				println(response);
 				proto.close();
 				System.exit(0);
 			}
